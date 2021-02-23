@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "target": "es5",
+    "moduleResolution": "node",
+    "sourceMap": true,
+    "declaration": true,
+    "outDir": "dist",
+    "strictNullChecks": true
+  },
+  "exclude": ["node_modules", "dist", "coverage"],
+  "include": ["./src/index.ts"],
+  "lib": ["es5"]
+}
