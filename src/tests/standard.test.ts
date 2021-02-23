@@ -109,7 +109,7 @@ describe('standard types', () => {
         withDocs(
             {
                 method: 'post', path: '/test',
-                params: z.object({ pr: z.string() }),
+                params: z.object({ p: z.string() }),
                 query: z.object({ q: z.string() }),
                 body: z.object({ b: z.string() }),
             },
