@@ -247,8 +247,8 @@ async function init({outFile}: InitOptions){
 type InitOptions = { outFile: string };
 export async function zodToSwaggerInit(initOptions: InitOptions){
     return init(initOptions).finally(() => {
-        swagRes = {};
-        swaggerTemplate = JSON.parse(JSON.stringify(swaggerTemplateOrig));
+        //swagRes = {};
+        //swaggerTemplate = JSON.parse(JSON.stringify(swaggerTemplateOrig));
     });
 }
 

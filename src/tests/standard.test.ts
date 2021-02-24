@@ -1,6 +1,7 @@
 import express from 'express';
 import * as z from 'zod';
 import fs from 'fs';
+const swaggerUi = require('swagger-ui-express');
 import { pathWithDocs, withDocs, zodToSwaggerInit } from '../index';
 
 const testsDir = './testsTempDir';
@@ -18,16 +19,31 @@ beforeAll(async () => {
     }
 });
 
+const withSwaggerUI = true;
+
 afterAll(async () => {
     try {
-        await fs.promises.rmdir(testsDir);
+        if (!withSwaggerUI){
+            await fs.promises.rmdir(testsDir);
+        } else {
+            const swaggerDocument = require('../../' + swaggerPath);
+            const app = express();
+            app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+            app.listen(8000, function () {
+                console.log(`Example app listening on port ${8000}!`);
+            });
+            await new Promise((res) => setTimeout(res, 24 * 60* 60 * 1000));
+        }
     } catch (err) {
+        console.log(err);
     }
 });
 
 afterEach(async () => {
     try {
-        await fs.promises.rm(swaggerPath);
+        if (!withSwaggerUI){
+            await fs.promises.rm(swaggerPath);
+        }
     } catch (err) {
     }
 });
@@ -36,7 +52,7 @@ afterEach(async () => {
 describe('generated file correctness', () => {
     test('file created', async () => {
         withDocs(
-            { method: 'get', path: '/test', query: z.object({ name: z.string() }) },
+            { method: 'get', path: '/file_created', query: z.object({ name: z.string() }) },
             () => {}
         );
         await zodToSwaggerInit({ outFile: swaggerPath });
@@ -48,7 +64,7 @@ describe('generated file correctness', () => {
         //TODO root level withDocs not working?
         pathWithDocs('/api', () => {
             withDocs(
-                { method: 'get', path: '/test', query: z.object({ name: z.string() }) },
+                { method: 'get', path: '/empty_body_query_params', query: z.object({ name: z.string() }) },
                 (reqData) => {}
             );
         })
@@ -57,7 +73,7 @@ describe('generated file correctness', () => {
 
         const file = await getSwaggerFile();
 
-        expect(file.paths['/api/test'].get.parameters).toEqual([
+        expect(file.paths['/api/empty_body_query_params'].get.parameters).toEqual([
             query('string', 'name')
         ]);
     });
@@ -108,7 +124,7 @@ describe('standard types', () => {
         //describe endpoint in docs
         withDocs(
             {
-                method: 'post', path: '/test',
+                method: 'post', path: '/standard_types/string',
                 params: z.object({ p: z.string() }),
                 query: z.object({ q: z.string() }),
                 body: z.object({ b: z.string() }),
@@ -123,13 +139,13 @@ describe('standard types', () => {
         const file = await getSwaggerFile();
 
         //check, does documentation have parameter p with type string, and parameter q with type string
-        expect(file.paths['/test'].post.parameters).toEqual([
+        expect(file.paths['/standard_types/string'].post.parameters).toEqual([
             params('string', 'p'),
             query('string', 'q'),
         ]);
 
         //check, does documentation have body property p
-        expect(file.paths['/test'].post.requestBody).toEqual({
+        expect(file.paths['/standard_types/string'].post.requestBody).toEqual({
             "required":true,
             "content":{
                 "application/json":{
@@ -140,6 +156,7 @@ describe('standard types', () => {
                             },
                         },
                         "required":[
+                            "b"
                         ],
                         "type":"object"
                     }
@@ -147,6 +164,52 @@ describe('standard types', () => {
             }
         });
     });
+
+    test('number', async() => {
+        //describe endpoint in docs
+        withDocs(
+            {
+                method: 'post', path: '/standard_types/number',
+                params: z.object({ p: z.number() }),
+                query: z.object({ q: z.number() }),
+                body: z.object({ b: z.number() }),
+            },
+            () => {}
+        );
+
+        //generate and save documentation file
+        await zodToSwaggerInit({ outFile: swaggerPath });
+
+        //save documentation file to 'file' variable
+        const file = await getSwaggerFile();
+
+        //check, does documentation have parameter p with type string, and parameter q with type string
+        expect(file.paths['/standard_types/number'].post.parameters).toEqual([
+            params('number', 'p'),
+            query('number', 'q'),
+        ]);
+
+        //check, does documentation have body property p
+        expect(file.paths['/standard_types/number'].post.requestBody).toEqual({
+            "required":true,
+            "content":{
+                "application/json":{
+                    "schema":{
+                        "properties":{
+                            "b":{
+                               "type":"number"
+                            },
+                        },
+                        "required":[
+                            "b"
+                        ],
+                        "type":"object"
+                    }
+                }
+            }
+        });
+    })
+
     /*
     string - done
     number
