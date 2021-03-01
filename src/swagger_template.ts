@@ -1,13 +1,13 @@
 export default {
-	"components": {
-		"examples": {},
-		"headers": {},
-		"parameters": {},
-		"requestBodies": {},
-		"responses": {},
-		"schemas": {},
-		"securitySchemes": {}
-	},
+	// "components": {
+	// 	"examples": {},
+	// 	"headers": {},
+	// 	"parameters": {},
+	// 	"requestBodies": {},
+	// 	"responses": {},
+	// 	"schemas": {},
+	// 	"securitySchemes": {}
+	// },
 	"info": {
 		"title": "back",
 		"version": "1.0.0",
@@ -24,5 +24,9 @@ export default {
 			"url": "/"
 		}
 	],
-	"definitions":{}
+	"components":{
+		"schemas": {
+
+		}
+	}
 }

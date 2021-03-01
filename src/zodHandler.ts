@@ -94,8 +94,8 @@ type TInputType = 'params'|'body'|'query';
 //obj - zodSchema of param/body/query
 //1) тип для сваггера можно описать двумя способами:
 //a) описать тип напрямую без ссылок
-//b) сослаться на тип с помощью ref, предварительно описав его в definitions
-//По большому счёту описывать тип в definitions лучше только для union и для lazy. Возможно ещё для array и некоторых других типов.
+//b) сослаться на тип с помощью ref, предварительно описав его в components/schemas
+//По большому счёту описывать тип в components/schemas лучше только для union и для lazy. Возможно ещё для array и некоторых других типов.
 
 const generatedTypes: { zodTypeRef: any, generatedName: string}[] = [];
 let typesNameValue = 10;
@@ -118,8 +118,8 @@ export function handleZodDescr(zodDescr: IZodObj | any, type: TInputType){
         }
     };
     /*
-    пример описания типа в definitions
-    swaggerTemplate.definitions["yourNewTypeName"] = {
+    пример описания типа в components/schemas
+    swaggerTemplate.components.schemas["yourNewTypeName"] = {
         type: "object", //он не обятельно object
         "properties": {
             //take properties from zodDescr.shape
@@ -177,7 +177,7 @@ export function handleZodDescr(zodDescr: IZodObj | any, type: TInputType){
     else if(zodDescr._def.t === 'lazy'){
         if (type === 'body'){
             //let lazyObj = zodDescr._def.getter();
-            //bodyObj.requestBody.content['application/json'].schema = {"$ref": "#/definitions/type2"}
+            //bodyObj.requestBody.content['application/json'].schema = {"$ref": "#/components/schemas/type2"}
             bodyObj.requestBody.content['application/json'].schema = {
                 ...bodyObj.requestBody.content['application/json'].schema,
                 ...handleLazyType(zodDescr)
@@ -201,7 +201,7 @@ function handleLazyType(lazyObj) {
     };
     for (let gt of generatedTypes){
         if (lazyObj === gt.zodTypeRef){
-            return { '$ref': '#/definitions/' + gt.generatedName };
+            return { '$ref': '#/components/schemas/' + gt.generatedName };
         }
     }
     const generatedTypeName = `type${typesNameValue}`;
@@ -217,9 +217,9 @@ function handleLazyType(lazyObj) {
         swaggerObject.required = isPropRequired(prop, propName, swaggerObject.required);
     }
     //console.log(swaggerObject);
-    swaggerTemplate.definitions[generatedTypeName] = swaggerObject;
-    //console.log(swaggerTemplate.definitions);
-    return { '$ref': '#/definitions/' + generatedTypeName };
+    swaggerTemplate.components.schemas[generatedTypeName] = swaggerObject;
+    //console.log(swaggerTemplate.components.schemas);
+    return { '$ref': '#/components/schemas/' + generatedTypeName };
 }
 
 function handleZodType(prop, propName) {
@@ -254,18 +254,32 @@ function handleZodType(prop, propName) {
             ...ifPropTypeArray(prop)
         }
     }
+    else if(prop._def.t === 'enum' && prop._def.values) {
+        resultingObj[propName] = {
+            type: prop._def.t,
+            enum: prop._def.values,
+        }
+    }
+    else if(prop._def.t === 'bigint') {
+        resultingObj[propName] = {
+            type: 'number'
+        }
+    }
+    else if(prop._def.t === 'date') {
+        resultingObj[propName] = {
+            type: 'string'
+        }
+    }
     else {
         resultingObj[propName] = {
             type: prop._def.t,
         };
-        if(prop._def.t === 'enum' && prop._def.values) {
-            resultingObj[propName]["enum"] = prop._def.values;
-        }
     }
     //console.log(resultingObj);
     return resultingObj;
 }
 
+//TODO split into 2 functions, isPropRequired and updateRequiredArr
 function isPropRequired(prop, propName, requiredArrOrBool) {
     if(prop._def.t !== 'union'){
         if(requiredArrOrBool) {
@@ -328,6 +342,13 @@ function ifPropTypeUnion (zodeTypeObj: any, resultingObj: any, propName: string)
     if (zodeTypeObj._def.options.find(x => x._def.t === 'undefined')) {
         for(let prop of zodeTypeObj._def.options) {
             if(prop._def.t !== 'undefined'){
+                resultingObj = handleZodType(prop, propName);
+            }
+        }
+    }
+    else if(zodeTypeObj._def.options.find(x => x._def.t === 'null')) {
+        for(let prop of zodeTypeObj._def.options) {
+            if(prop._def.t !== 'null'){
                 resultingObj = handleZodType(prop, propName);
             }
         }
