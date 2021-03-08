@@ -324,7 +324,7 @@ export function withDocs<TBody extends TZodDescr=undefined, TParams extends TZod
                 // }
                 swagRes = _.mergeWith(swagRes, {
                     [fullPath]:{
-                        [reqData.method]: handleZodDescr(zodDescr, inputType)
+                        [reqData.method]: handleZodDescr(zodDescr, inputType, swaggerTemplate)
                     }
                 //concat arrays instead of merge
                 }, (objValue, srcValue) => (_.isArray(objValue) ? objValue.concat(srcValue): undefined))

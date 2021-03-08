@@ -1,6 +1,6 @@
 import * as z from 'zod';
-import { Request, Response, NextFunction, RequestHandler } from 'express';
-import swaggerTemplate from './swagger_template';
+import e, { Request, Response, NextFunction, RequestHandler } from 'express';
+//import swaggerTemplate from './index';
 import fs from 'fs';
 import _ from 'lodash';
 
@@ -98,9 +98,9 @@ type TInputType = 'params'|'body'|'query';
 //По большому счёту описывать тип в components/schemas лучше только для union и для lazy. Возможно ещё для array и некоторых других типов.
 
 const generatedTypes: { zodTypeRef: any, generatedName: string}[] = [];
-let typesNameValue = 10;
+let typesNameValue = 1;
 
-export function handleZodDescr(zodDescr: IZodObj | any, type: TInputType){
+export function handleZodDescr(zodDescr: IZodObj | any, inputType: TInputType, swaggerTemplate){
     let bodyObj: any = {
         "requestBody": {
             "required": true,
@@ -131,21 +131,50 @@ export function handleZodDescr(zodDescr: IZodObj | any, type: TInputType){
         const deferredLazy: any[] = [];
         for (let propName in zodDescr.shape){
             const prop: any = zodDescr.shape[propName];
-            if (type === 'body'){
+            if (inputType === 'body'){
                 let requiredArr = bodyObj.requestBody.content['application/json'].schema.required;
                 isPropRequired(prop, propName, requiredArr);
                 bodyObj.requestBody.content['application/json'].schema.properties = {
                     ...bodyObj.requestBody.content['application/json'].schema.properties,
-                    ...handleZodType(prop, propName)
+                    ...handleZodType(prop, propName, inputType, swaggerTemplate)
                 }
             } else {
                 let parametersObj = {
-                    in: type === 'params' ? 'path' : 'query',
+                    in: inputType === 'params' ? 'path' : 'query',
                     name: propName,
                     required: true,
                     schema: {}
                 };
-                let propertyObj = handleZodType(prop, propName);
+                if(prop._def.t === 'any' || prop._def.t === 'unknown'){
+                    parametersObj["description"] = `reffered to type anyType`;
+                }
+                if(prop._def.t === 'union' || prop._def.t === 'tuple' || prop._def.t === 'lazy'){
+                    parametersObj["description"] = `reffered to type${typesNameValue}`;
+                }
+                if(prop._def.t === 'bigint'){
+                    parametersObj["description"] = 'Type: bigint';
+                }
+                if(prop._def.t === 'date'){
+                    parametersObj["description"] = 'Type: date';
+                }
+                if(prop._def.t === 'object'){
+                    const zodObj = prop._def.shape();
+                    for(let zodObjName in zodObj){
+                        if(zodObj[zodObjName]._def.t === 'date'){
+                            if(parametersObj["description"]) {
+                                parametersObj["description"] += `, ${zodObjName}: date`;
+                            }
+                            else parametersObj["description"] = `${zodObjName}: date`;
+                        }
+                        if(zodObj[zodObjName]._def.t === 'bigint'){
+                            if(parametersObj["description"]) {
+                                parametersObj["description"] += `, ${zodObjName}: bigint`;
+                            }
+                            else parametersObj["description"] = `${zodObjName}: bigint`;
+                        }
+                    }
+                }
+                let propertyObj = handleZodType(prop, propName, inputType, swaggerTemplate);
                 parametersObj.schema = {...parametersObj.schema, ...propertyObj[propName]};
                 parametersObj.required = isPropRequired(prop, propName, undefined);
                 parameters.push(parametersObj);
@@ -159,11 +188,11 @@ export function handleZodDescr(zodDescr: IZodObj | any, type: TInputType){
         for(let unionObj of unionOptionsArr.options) {
             for (let propName in unionObj.shape){
                 const prop: any = unionObj.shape[propName];
-                if(type === 'body'){
+                if(inputType === 'body'){
                     let requiredArr = bodyObj.requestBody.content['application/json'].schema.required;
                     bodyObj.requestBody.content['application/json'].schema["anyOf"].push({
                         "type": "object",
-                        "properties": handleZodType(prop, propName),
+                        "properties": handleZodType(prop, propName, inputType, swaggerTemplate),
                         "required": isPropRequired(prop, propName, requiredArr),
                     });
                 }
@@ -175,30 +204,39 @@ export function handleZodDescr(zodDescr: IZodObj | any, type: TInputType){
     }
 
     else if(zodDescr._def.t === 'lazy'){
-        if (type === 'body'){
-            //let lazyObj = zodDescr._def.getter();
-            //bodyObj.requestBody.content['application/json'].schema = {"$ref": "#/components/schemas/type2"}
+        if (inputType === 'body'){
             bodyObj.requestBody.content['application/json'].schema = {
                 ...bodyObj.requestBody.content['application/json'].schema,
-                ...handleLazyType(zodDescr)
+                ...handleLazyType(zodDescr, inputType, swaggerTemplate)
             }
-            //console.log(bodyObj.requestBody.content['application/json'].schema);
-        }
+        } 
+        // else { // if query or params lazy on root
+        //     let parametersObj = {
+        //         in: inputType === 'params' ? 'path' : 'query',
+        //         required: true,
+        //         description: `reffered to type${typesNameValue}`,
+        //         schema: {}
+        //     };
+        //     handleLazyType(zodDescr, inputType, swaggerTemplate);
+        //     parameters.push(parametersObj);
+        // }
     }
 
-    if (type === 'body'){
+    else if(zodDescr._def.t === 'record'){
+        if(inputType === 'body'){
+        }
+        //handleZodType(prop._def.valueType, propName, inputType, swaggerTemplate);
+    }
+
+    if (inputType === 'body'){
         return bodyObj;
     } else {
         return { parameters };
     }
 }
 
-function handleLazyType(lazyObj) {
-    let swaggerObject:any = {
-        type: "object",
-        required: [],
-        properties: {}
-    };
+function handleLazyType(lazyObj, inputType, swaggerTemplate) {
+    let swaggerObject:any = {};
     for (let gt of generatedTypes){
         if (lazyObj === gt.zodTypeRef){
             return { '$ref': '#/components/schemas/' + gt.generatedName };
@@ -208,30 +246,50 @@ function handleLazyType(lazyObj) {
     typesNameValue++;
     generatedTypes.push({zodTypeRef: lazyObj, generatedName: generatedTypeName });
     lazyObj = lazyObj._def.getter();
+    swaggerObject = {
+        type: "object",
+        required: [],
+        properties: {}
+    };
     for(let propName in lazyObj.shape){
         const prop: any = lazyObj.shape[propName];
         swaggerObject.properties = {
             ...swaggerObject.properties,
-            ...handleZodType(prop, propName)
+            ...handleZodType(prop, propName, inputType, swaggerTemplate)
         };
         swaggerObject.required = isPropRequired(prop, propName, swaggerObject.required);
     }
-    //console.log(swaggerObject);
     swaggerTemplate.components.schemas[generatedTypeName] = swaggerObject;
-    //console.log(swaggerTemplate.components.schemas);
     return { '$ref': '#/components/schemas/' + generatedTypeName };
 }
 
-function handleZodType(prop, propName) {
+function handleZodType(prop, propName, inputType, swaggerTemplate) {
     let resultingObj: any = {};
     if (prop._def.t === 'union'){
         resultingObj = {
             ...resultingObj,
-            ...ifPropTypeUnion(prop, resultingObj, propName)
+            ...handleUnionType(prop, resultingObj, propName, inputType, swaggerTemplate)
         }
     }
     else if(prop._def.t === 'lazy'){
-        resultingObj[propName] = handleLazyType(prop);
+        if(prop._def.getter()._def.t === 'object'){ // if in lazy of object field - self lazy of object
+            resultingObj[propName] = handleLazyType(prop, inputType, swaggerTemplate);
+        }
+        else {
+            const generatedTypeName = `type${typesNameValue}`;
+            typesNameValue++;
+            let swaggerObj =  handleZodType(prop._def.getter(), propName, inputType, swaggerTemplate);
+            swaggerTemplate.components.schemas[generatedTypeName] = swaggerObj[propName];
+            if(inputType === 'body') {
+                resultingObj[propName] = {
+                    '$ref': '#/components/schemas/' + generatedTypeName
+                };
+            } else {
+                resultingObj = {
+                    '$ref': '#/components/schemas/' + generatedTypeName
+                };
+            }
+        }
     }
     else if (prop._def.t === 'object'){
         resultingObj[propName] = {
@@ -243,7 +301,7 @@ function handleZodType(prop, propName) {
         for(let zodObjName in zodObj){
             resultingObj[propName].properties = {
                 ...resultingObj[propName].properties,
-                ...handleZodType(zodObj[zodObjName], zodObjName)
+                ...handleZodType(zodObj[zodObjName], zodObjName, inputType, swaggerTemplate)
             }
             resultingObj[propName].required = isPropRequired(zodObj[zodObjName], zodObjName, resultingObj[propName].required);
         }
@@ -251,7 +309,7 @@ function handleZodType(prop, propName) {
     else if(prop._def.t === 'array') {
         resultingObj[propName] = {
             ...resultingObj[propName],
-            ...ifPropTypeArray(prop)
+            ...handleArrayType(prop, inputType, swaggerTemplate)
         }
     }
     else if(prop._def.t === 'enum' && prop._def.values) {
@@ -262,20 +320,94 @@ function handleZodType(prop, propName) {
     }
     else if(prop._def.t === 'bigint') {
         resultingObj[propName] = {
-            type: 'number'
+            type: 'number',
+        }
+        if(inputType === 'body'){
+            resultingObj[propName].description = 'Type: bigint';
         }
     }
     else if(prop._def.t === 'date') {
         resultingObj[propName] = {
-            type: 'string'
+            type: 'string',
         }
+        if(inputType === 'body'){
+            resultingObj[propName].description = 'Type: date';
+        }
+    }
+    else if(prop._def.t === 'undefined' || prop._def.t === 'null' || prop._def.t === 'void'){
+        resultingObj[propName] = {
+            type: prop._def.t,
+            example: prop._def.t
+        }
+    }
+    else if(prop._def.t === 'any' || prop._def.t === 'unknown'){        
+        if(!swaggerTemplate.components.schemas["anyType"]){
+            swaggerTemplate.components.schemas["anyType"] = {
+                "anyOf": [
+					{
+						"type": "string"
+					},
+					{
+						"type": "number"
+					},
+					{
+						"type": "integer"
+					},
+					{
+						"type": "boolean"
+					},
+					{
+						"type": "array",
+						"items": {}
+					},
+					{
+						"type": "object"
+					}
+				]
+            }
+        }
+        if(inputType === 'body') {
+            resultingObj[propName] = {
+                "$ref": "#/components/schemas/anyType"
+            };
+        } else {
+            resultingObj = {
+                "$ref": "#/components/schemas/anyType"
+            };
+        }
+    }
+    else if (prop._def.t === 'tuple'){
+        const tupleTypesArr = prop._def.items;
+        const generatedTypeName = `type${typesNameValue}`;
+        typesNameValue++;
+        swaggerTemplate.components.schemas[generatedTypeName] = {
+            "type": "array",
+            "items": {
+                "anyOf": []
+            }
+        };
+        for(let prop of tupleTypesArr) {
+            const swaggerObj = handleZodType(prop, propName, inputType, swaggerTemplate);
+            swaggerTemplate.components.schemas[generatedTypeName].items.anyOf.push(swaggerObj[propName]);
+        };
+        if(inputType === 'body') {
+            resultingObj[propName] = {
+                "$ref": `#/components/schemas/${generatedTypeName}`
+            };
+        } else {
+            resultingObj = {
+                "$ref": `#/components/schemas/${generatedTypeName}`
+            };
+        }
+    }
+    else if(prop._def.t === 'record'){
+        resultingObj = handleZodType(prop._def.valueType, propName, inputType, swaggerTemplate);
     }
     else {
         resultingObj[propName] = {
             type: prop._def.t,
         };
     }
-    //console.log(resultingObj);
     return resultingObj;
 }
 
@@ -303,13 +435,13 @@ function isPropRequired(prop, propName, requiredArrOrBool) {
     return requiredArrOrBool;
 }
 
-function ifPropTypeArray(prop) {
+function handleArrayType(prop, inputType, swaggerTemplate) {
     let resultingObj = {};
     resultingObj["type"] = prop._def.t;
     if(prop._def.type._def.t === 'array'){
         resultingObj["items"] = {
             ...resultingObj["items"],
-            ...ifPropTypeArray(prop._def.type)
+            ...handleArrayType(prop._def.type, inputType, swaggerTemplate)
         }
     }
     else if(prop._def.type._def.t === 'object'){
@@ -322,7 +454,7 @@ function ifPropTypeArray(prop) {
         for(let zodeObjName in zodeObj){
             resultingObj["items"].properties = {
                 ...resultingObj["items"].properties,
-                ...handleZodType(zodeObj[zodeObjName], zodeObjName)
+                ...handleZodType(zodeObj[zodeObjName], zodeObjName, inputType, swaggerTemplate)
             }
             resultingObj["items"].required = isPropRequired(zodeObj[zodeObjName], zodeObjName, resultingObj["items"].required);
         }
@@ -338,58 +470,48 @@ function ifPropTypeArray(prop) {
     return resultingObj;
 }
 
-function ifPropTypeUnion (zodeTypeObj: any, resultingObj: any, propName: string) {
-    if (zodeTypeObj._def.options.find(x => x._def.t === 'undefined')) {
-        for(let prop of zodeTypeObj._def.options) {
-            if(prop._def.t !== 'undefined'){
-                resultingObj = handleZodType(prop, propName);
-            }
-        }
-    }
-    else if(zodeTypeObj._def.options.find(x => x._def.t === 'null')) {
-        for(let prop of zodeTypeObj._def.options) {
-            if(prop._def.t !== 'null'){
-                resultingObj = handleZodType(prop, propName);
-            }
-        }
-    }
-    else {
+function handleUnionType (zodeTypeObj: any, resultingObj: any, propName: string, inputType: TInputType, swaggerTemplate) {
+    //Solution with types exists check 
+
+    // let newType: any = {
+    //     "anyOf": []
+    // };
+    // for(let prop of zodeTypeObj._def.options) {
+    //     const swaggerObj = handleZodType(prop, propName, inputType, swaggerTemplate);
+    //     newType.anyOf.push(swaggerObj[propName]);
+    // };
+    // for(let prop in swaggerTemplate.components.schemas){
+    //     if(JSON.stringify(swaggerTemplate.components.schemas[prop]) === JSON.stringify(newType)){ //if type already exists
+    //         resultingObj[propName] = {
+    //             "$ref": `#/components/schemas/${prop}`
+    //         }
+    //         return resultingObj;
+    //     }
+    // }
+    // const generatedTypeName = `type${typesNameValue}`;
+    // typesNameValue++;
+    // swaggerTemplate.components.schemas[generatedTypeName] = newType;
+    // resultingObj[propName] = {
+    //     "$ref": `#/components/schemas/${generatedTypeName}`
+    // };
+    // return resultingObj;
+    const generatedTypeName = `type${typesNameValue}`;
+    typesNameValue++;
+    swaggerTemplate.components.schemas[generatedTypeName] = {
+        "anyOf": []
+    };
+    for(let prop of zodeTypeObj._def.options) {
+        const swaggerObj = handleZodType(prop, propName, inputType, swaggerTemplate);
+        swaggerTemplate.components.schemas[generatedTypeName].anyOf.push(swaggerObj[propName]);
+    };
+    if(inputType === 'body') {
         resultingObj[propName] = {
-            "type": "object",
-            "anyOf": []
+            "$ref": `#/components/schemas/${generatedTypeName}`
         };
-        for(let prop of zodeTypeObj._def.options) {
-            if (prop._def.t === 'object') {
-                const zodObj = prop._def.shape();
-                let properties = {};
-                let requiredArr = [];
-                for(let zodObjName in zodObj){
-                    properties = {
-                        ...properties,
-                        ...handleZodType(zodObj[zodObjName], zodObjName)
-                    }
-                    requiredArr = (isPropRequired(zodObj[zodObjName], zodObjName, requiredArr));
-                }
-                resultingObj[propName]["anyOf"].push({
-                    type: prop._def.t,
-                    required: requiredArr,
-                    properties
-                })
-            } 
-            else {
-                if(prop._def.t === 'enum' && prop._def.values){
-                    resultingObj[propName]["anyOf"].push({
-                        type: prop._def.t,
-                        enum: prop._def.values,
-                    })
-                }
-                else {
-                    resultingObj[propName]["anyOf"].push({
-                        type: prop._def.t,
-                    });
-                }
-            }
-        }
+    } else {
+        resultingObj = {
+            "$ref": `#/components/schemas/${generatedTypeName}`
+        };
     }
     return resultingObj;
 }

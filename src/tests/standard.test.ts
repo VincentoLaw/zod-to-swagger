@@ -19,7 +19,7 @@ beforeAll(async () => {
     }
 });
 
-const withSwaggerUI = true;
+const withSwaggerUI = false;
 
 afterAll(async () => {
     try {
@@ -214,8 +214,24 @@ describe('standard types', () => {
         await zodToSwaggerInit({ outFile: swaggerPath });
         const file = await getSwaggerFile();
         expect(file.paths['/standard_types/bigint'].post.parameters).toEqual([
-            params('number', 'p'),
-            query('number', 'q'),
+            {
+                "in": "path",
+                "name": "p",
+                "required": true,
+                "description": 'Type: bigint',
+                "schema": { 
+                    "type": "number",
+                }
+            },
+            {
+                "in": "query",
+                "name": "q",
+                "required": true,
+                "description": 'Type: bigint',
+                "schema": { 
+                    "type": "number",
+                }
+            },
         ]);
         expect(file.paths['/standard_types/bigint'].post.requestBody).toEqual({
             "required":true,
@@ -224,7 +240,8 @@ describe('standard types', () => {
                     "schema":{
                         "properties":{
                             "b":{
-                               "type":"number"
+                               "type":"number",
+                               "description": 'Type: bigint'
                             },
                         },
                         "required":[
@@ -286,8 +303,24 @@ describe('standard types', () => {
         await zodToSwaggerInit({ outFile: swaggerPath });
         const file = await getSwaggerFile();
         expect(file.paths['/standard_types/date'].post.parameters).toEqual([
-            params('string', 'p'),
-            query('string', 'q'),
+            {
+                "in": "path",
+                "name": "p",
+                "required": true,
+                "description": 'Type: date',
+                "schema": { 
+                    "type": "string",
+                }
+            },
+            {
+                "in": "query",
+                "name": "q",
+                "required": true,
+                "description": 'Type: date',
+                "schema": { 
+                    "type": "string",
+                }
+            },
         ]);
         expect(file.paths['/standard_types/date'].post.requestBody).toEqual({
             "required":true,
@@ -296,7 +329,8 @@ describe('standard types', () => {
                     "schema":{
                         "properties":{
                             "b":{
-                               "type":"string"
+                               "type":"string",
+                               "description": "Type: date"
                             },
                         },
                         "required":[
@@ -314,15 +348,15 @@ describe('standard types', () => {
             {
                 method: 'post', path: '/standard_types/undefined',
                 params: z.object({ 
-                    //p1: z.undefined(),
+                    p1: z.undefined(),
                     p2: z.string().optional(),
                 }),
                 query: z.object({
-                    //q1: z.undefined(),
+                    q1: z.undefined(),
                     q2: z.string().optional(), 
                 }),
                 body: z.object({
-                    //b1: z.undefined(),
+                    b1: z.undefined(),
                     b2: z.string().optional(),               
                 }),
             },
@@ -331,10 +365,38 @@ describe('standard types', () => {
         await zodToSwaggerInit({ outFile: swaggerPath });
         const file = await getSwaggerFile();
         expect(file.paths['/standard_types/undefined'].post.parameters).toEqual([
-            //params('undefined', 'p1'),
-            params('string', 'p2', false),
-            //query('undefined', 'q1'),
-            query('string', 'q2', false),
+            {
+                "in": "path",
+                "name": "p1",
+                "required": true,
+                "schema": { 
+                    "type": "undefined",
+                    "example":  "undefined",
+                }
+            },
+            {
+                "in": "path",
+                "name": "p2",
+                "required": false,
+                "description": "reffered to type1",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q1",
+                "required": true,
+                "schema": { 
+                    "type": "undefined",
+                    "example":  "undefined",
+                }
+            },
+            {
+                "in": "query",
+                "name": "q2",
+                "required": false,
+                "description": "reffered to type3",
+                "schema": {}
+            },
         ]);
         expect(file.paths['/standard_types/undefined'].post.requestBody).toEqual({
             "required":true,
@@ -342,15 +404,16 @@ describe('standard types', () => {
                 "application/json":{
                     "schema":{
                         "properties":{
-                            // "b1":{
-                            //    "type":"undefined"
-                            // },
+                            "b1":{
+                               "type":"undefined",
+                               "example":  "undefined",
+                            },
                             "b2":{
-                                "type": "string"
+                                "$ref": "#/components/schemas/type2",
                             }
                         },
                         "required":[
-                            // "b1"
+                            "b1"
                         ],
                         "type":"object"
                     }
@@ -364,16 +427,22 @@ describe('standard types', () => {
             {
                 method: 'post', path: '/standard_types/null',
                 params: z.object({ 
-                    //p1: z.undefined(),
-                    p2: z.string().nullable(),
+                    p1: z.null(),
+                    p2: z.string().nullable(),                            //union => (string, null)
+                    p3: z.union([z.number(), z.string(), z.null()]),    //union => (number, string, null)
+                    p4: z.union([z.number(), z.string()]).nullable()     //union => (union, null)
                 }),
                 query: z.object({
-                    //q1: z.undefined(),
-                    q2: z.string().nullable(), 
+                    q1: z.null(),
+                    q2: z.string().nullable(),
+                    q3: z.union([z.number(), z.string(), z.null()]),
+                    q4: z.union([z.number(), z.string()]).nullable() 
                 }),
                 body: z.object({
-                    //b1: z.undefined(),
-                    b2: z.string().nullable(),               
+                    b1: z.null(),
+                    b2: z.string().nullable(),
+                    b3: z.union([z.number(), z.string(), z.null()]),
+                    b4: z.union([z.number(), z.string()]).nullable() 
                 }),
             },
             () => {}
@@ -381,10 +450,66 @@ describe('standard types', () => {
         await zodToSwaggerInit({ outFile: swaggerPath });
         const file = await getSwaggerFile();
         expect(file.paths['/standard_types/null'].post.parameters).toEqual([
-            //params('null', 'p1'),
-            params('string', 'p2'),
-            //query('null', 'q1'),
-            query('string', 'q2'),
+            {
+                "in": "path",
+                "name": "p1",
+                "required": true,
+                "schema": { 
+                    "type": "null",
+                    "example": "null"
+                }
+            },
+            {
+                "in": "path",
+                "name": "p2",
+                "required": true,
+                "description": "reffered to type4",
+                "schema": {}
+            },
+            {
+                "in": "path",
+                "name": "p3",
+                "required": true,
+                "description": "reffered to type5",
+                "schema": {}
+            },
+            {
+                "in": "path",
+                "name": "p4",
+                "required": true,
+                "description": "reffered to type6",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q1",
+                "required": true,
+                "schema": { 
+                    "type": "null",
+                    "example": "null"
+                }
+            },
+            {
+                "in": "query",
+                "name": "q2",
+                "required": true,
+                "description": "reffered to type12",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q3",
+                "required": true,
+                "description": "reffered to type13",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q4",
+                "required": true,
+                "description": "reffered to type14",
+                "schema": {}
+            },
         ]);
         expect(file.paths['/standard_types/null'].post.requestBody).toEqual({
             "required":true,
@@ -392,15 +517,81 @@ describe('standard types', () => {
                 "application/json":{
                     "schema":{
                         "properties":{
-                            // "b1":{
-                            //    "type":"null"
-                            // },
+                            "b1":{
+                               "type":"null",
+                               "example": "null"
+                            },
                             "b2":{
-                                "type": "string"
+                                "$ref": "#/components/schemas/type8",
+                            },
+                            "b3":{
+                                "$ref": "#/components/schemas/type9",
+                            },
+                            "b4":{
+                                "$ref": "#/components/schemas/type10",
                             }
                         },
                         "required":[
-                            "b2",
+                            "b1", "b2", "b3", "b4"
+                        ],
+                        "type":"object"
+                    }
+                }
+            }
+        });
+    });
+
+    test('void', async() => {
+        withDocs(
+            {
+                method: 'post', path: '/standard_types/void',
+                params: z.object({ 
+                    p1: z.void(),
+                }),
+                query: z.object({
+                    q1: z.void(), 
+                }),
+                body: z.object({
+                    b1: z.void(),               
+                }),
+            },
+            () => {}
+        );
+        await zodToSwaggerInit({ outFile: swaggerPath });
+        const file = await getSwaggerFile();
+        expect(file.paths['/standard_types/void'].post.parameters).toEqual([
+            {
+                "in": "path",
+                "name": "p1",
+                "required": true,
+                "schema": { 
+                    "type": "void",
+                    "example":  "void",
+                }
+            },
+            {
+                "in": "query",
+                "name": "q1",
+                "required": true,
+                "schema": { 
+                    "type": "void",
+                    "example":  "void",
+                }
+            },
+        ]);
+        expect(file.paths['/standard_types/void'].post.requestBody).toEqual({
+            "required":true,
+            "content":{
+                "application/json":{
+                    "schema":{
+                        "properties":{
+                            "b1":{
+                               "type":"void",
+                               "example":  "void",
+                            },
+                        },
+                        "required":[
+                            "b1"
                         ],
                         "type":"object"
                     }
@@ -415,9 +606,9 @@ describe('standard types', () => {
                 method: 'post', path: '/standard_types/union',
                 params: z.object({ 
                     p1: z.union([
-                        // z.object({
-                        //     test: z.string()
-                        // }),
+                        z.object({
+                            test: z.string()
+                        }),
                         z.string(),
                         z.string().array(),
                     ]),
@@ -426,46 +617,88 @@ describe('standard types', () => {
                         z.string()
                     ])
                 }),
-                // query: z.object({
-                //     //q1: z.undefined(),
-                //     q2: z.string().nullable(), 
-                // }),
-                // body: z.object({
-                //     //b1: z.undefined(),
-                //     b2: z.string().nullable(),               
-                // }),
+                query: z.object({
+                    q1: z.union([
+                        z.object({
+                            test: z.string()
+                        }),
+                        z.string(),
+                        z.string().array(),
+                    ]),
+                    q2: z.union([
+                        z.number(),
+                        z.string()
+                    ])
+                }),
+                body: z.object({
+                    b1: z.union([
+                        z.object({
+                            test: z.string()
+                        }),
+                        z.string(),
+                        z.string().array(),
+                    ]),
+                    b2: z.union([
+                        z.number(),
+                        z.string()
+                    ])               
+                }),
             },
             () => {}
         );
         await zodToSwaggerInit({ outFile: swaggerPath });
         const file = await getSwaggerFile();
-        /*expect(file.paths['/standard_types/union'].post.parameters).toEqual([
-            params('union', 'p1'),
-            params('union', 'p2'),
-            // query('null', 'q1'),
-            // query('string', 'q2'),
-        ]);*/
-        // expect(file.paths['/standard_types/null'].post.requestBody).toEqual({
-        //     "required":true,
-        //     "content":{
-        //         "application/json":{
-        //             "schema":{
-        //                 "properties":{
-        //                     // "b1":{
-        //                     //    "type":"null"
-        //                     // },
-        //                     "b2":{
-        //                         "type": "string"
-        //                     }
-        //                 },
-        //                 "required":[
-        //                     "b2",
-        //                 ],
-        //                 "type":"object"
-        //             }
-        //         }
-        //     }
-        // });
+        expect(file.paths['/standard_types/union'].post.parameters).toEqual([
+            {
+                "in": "path",
+                "name": "p1",
+                "required": true,
+                "description": "reffered to type16",
+                "schema": {}
+            },
+            {
+                "in": "path",
+                "name": "p2",
+                "required": true,
+                "description": "reffered to type17",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q1",
+                "required": true,
+                "description": "reffered to type20",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q2",
+                "required": true,
+                "description": "reffered to type21",
+                "schema": {}
+            },
+        ]);
+        expect(file.paths['/standard_types/union'].post.requestBody).toEqual({
+            "required":true,
+            "content":{
+                "application/json":{
+                    "schema":{
+                        "properties":{
+                            "b1":{
+                                "$ref": "#/components/schemas/type18",
+                            },
+                            "b2":{
+                                "$ref": "#/components/schemas/type19",
+                            }
+                        },
+                        "required":[
+                            "b1", "b2",
+                        ],
+                        "type":"object"
+                    }
+                }
+            }
+        });
     });
 
     test('enum', async() => {
@@ -509,6 +742,114 @@ describe('standard types', () => {
                             "b":{
                                "type":"enum",
                                "enum": ["qwe", "zxc"]
+                            },
+                        },
+                        "required":[
+                            "b",
+                        ],
+                        "type":"object"
+                    }
+                }
+            }
+        });
+    });
+
+    test('dateAndBigintInObject', async() => {
+        withDocs(
+            {
+                method: 'post', path: '/standard_types/dateAndBigintInObject',
+                params: z.object({
+                    p: z.object({
+                        d: z.date(),
+                        b: z.bigint(),
+                        s: z.string()
+                    })
+                }),
+                query: z.object({
+                    q: z.object({
+                        d: z.date(),
+                        b: z.bigint(),
+                        s: z.string()
+                    })
+                }),
+                body: z.object({
+                    b: z.object({
+                        d: z.date(),
+                        b: z.bigint(),
+                        s: z.string()
+                    })
+                }),
+            },
+            () => {}
+        );
+        await zodToSwaggerInit({ outFile: swaggerPath });
+        const file = await getSwaggerFile();
+        expect(file.paths['/standard_types/dateAndBigintInObject'].post.parameters).toEqual([
+            {
+                "in": "path",
+                "name": "p",
+                "required": true,
+                "description": "d: date, b: bigint",
+                "schema": { 
+                    "type": "object",
+                    "properties": {
+                        "d": {
+                            "type": "string"
+                        },
+                        "b": {
+                            "type": "number"
+                        },
+                        "s": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["d", "b", "s"]
+                }
+            },
+            {
+                "in": "query",
+                "name": "q",
+                "required": true,
+                "description": "d: date, b: bigint",
+                "schema": { 
+                    "type": "object",
+                    "properties": {
+                        "d": {
+                            "type": "string"
+                        },
+                        "b": {
+                            "type": "number"
+                        },
+                        "s": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["d", "b", "s"]
+                }
+            },
+        ]);
+        expect(file.paths['/standard_types/dateAndBigintInObject'].post.requestBody).toEqual({
+            "required": true,
+            "content":{
+                "application/json":{
+                    "schema":{
+                        "properties":{
+                            "b":{
+                                "type":"object",
+                                "properties": {
+                                    "d": {
+                                        "type": "string",
+                                        "description": "Type: date"
+                                    },
+                                    "b": {
+                                        "type": "number",
+                                        "description": "Type: bigint",
+                                    },
+                                    "s": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": ["d", "b", "s"]
                             },
                         },
                         "required":[
@@ -745,31 +1086,282 @@ describe('standard types', () => {
         });
     });
 
-    // test('any', async() => {
+    test('any', async() => {
+        withDocs(
+            {
+                method: 'post', path: '/standard_types/any',
+                params: z.object({ p: z.any() }),
+                query: z.object({ q: z.any() }),
+                body: z.object({ b: z.any() }),
+            },
+            () => {}
+        );
+        await zodToSwaggerInit({ outFile: swaggerPath });
+        const file = await getSwaggerFile();
+        expect(file.paths['/standard_types/any'].post.parameters).toEqual([
+            {
+                "in": "path",
+                "name": "p",
+                "required": true,
+                "description": "reffered to type anyType",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q",
+                "required": true,
+                "description": "reffered to type anyType",
+                "schema": {}
+            },
+        ]);
+        expect(file.paths['/standard_types/any'].post.requestBody).toEqual({
+            "required":true,
+            "content":{
+                "application/json":{
+                    "schema":{
+                        "properties":{
+                            "b":{
+                                "$ref": "#/components/schemas/anyType",
+                            },
+                        },
+                        "required":[
+                            "b"
+                        ],
+                        "type":"object"
+                    }
+                }
+            }
+        });
+    });
+
+    test('unknown', async() => {
+        withDocs(
+            {
+                method: 'post', path: '/standard_types/unknown',
+                params: z.object({ p: z.unknown() }),
+                query: z.object({ q: z.unknown() }),
+                body: z.object({ b: z.unknown() }),
+            },
+            () => {}
+        );
+        await zodToSwaggerInit({ outFile: swaggerPath });
+        const file = await getSwaggerFile();
+        expect(file.paths['/standard_types/unknown'].post.parameters).toEqual([
+            {
+                "in": "path",
+                "name": "p",
+                "required": true,
+                "description": "reffered to type anyType",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q",
+                "required": true,
+                "description": "reffered to type anyType",
+                "schema": {}
+            },
+        ]);
+        expect(file.paths['/standard_types/unknown'].post.requestBody).toEqual({
+            "required":true,
+            "content":{
+                "application/json":{
+                    "schema":{
+                        "properties":{
+                            "b":{
+                                "$ref": "#/components/schemas/anyType",
+                            },
+                        },
+                        "required":[
+                            "b"
+                        ],
+                        "type":"object"
+                    }
+                }
+            }
+        });
+    });
+
+    test('tuple', async() => {
+        withDocs(
+            {
+                method: 'post', path: '/standard_types/tuple',
+                params: z.object({ 
+                    p: z.tuple([
+                        z.string(),
+                        z.number(),
+                        z.object({
+                            test: z.string()
+                        }),
+                        z.string().array()
+                    ]) 
+                }),
+                query: z.object({
+                    q: z.tuple([
+                        z.string(),
+                        z.number(),
+                        z.object({
+                            test: z.string()
+                        }),
+                        z.string().array()
+                    ])
+                }),
+                body: z.object({
+                    b: z.tuple([
+                        z.string(),
+                        z.number(),
+                        z.object({
+                            test: z.string()
+                        }),
+                        z.string().array()
+                    ])
+                }),
+            },
+            () => {}
+        );
+        await zodToSwaggerInit({ outFile: swaggerPath });
+        const file = await getSwaggerFile();
+        expect(file.paths['/standard_types/tuple'].post.parameters).toEqual([
+            {
+                "in": "path",
+                "name": "p",
+                "required": true,
+                "description": "reffered to type22",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q",
+                "required": true,
+                "description": "reffered to type24",
+                "schema": {}
+            },
+        ]);
+        expect(file.paths['/standard_types/tuple'].post.requestBody).toEqual({
+            "required":true,
+            "content":{
+                "application/json":{
+                    "schema":{
+                        "properties":{
+                            "b":{
+                                "$ref": "#/components/schemas/type23",
+                            },
+                        },
+                        "required":[
+                            "b"
+                        ],
+                        "type":"object"
+                    }
+                }
+            }
+        });
+    });
+
+    test('record', async() => {
+        const User = z.object({
+            name: z.string(),
+        });
+        withDocs(
+            {
+                method: 'post', path: '/standard_types/record',
+                params: z.object({ 
+                    p: z.record(User) 
+                }),
+                query: z.object({ 
+                    q: z.record(User) 
+                }),
+                body: z.object({ 
+                    b: z.record(User) 
+                }),
+            },
+            () => {}
+        );
+        await zodToSwaggerInit({ outFile: swaggerPath });
+        const file = await getSwaggerFile();
+        expect(file.paths['/standard_types/record'].post.parameters).toEqual([
+            {
+                "in": "path",
+                "name": "p",
+                "required": true,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["name"]
+                }
+            },
+            {
+                "in": "query",
+                "name": "q",
+                "required": true,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["name"]
+                }
+            },
+        ]);
+        expect(file.paths['/standard_types/record'].post.requestBody).toEqual({
+            "required":true,
+            "content":{
+                "application/json":{
+                    "schema":{
+                        "properties":{
+                            "b":{
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": ["name"]
+                            }
+                        },
+                        "required":[
+                            "b"
+                        ],
+                        "type":"object"
+                    }
+                }
+            }
+        });
+    });
+
+    // test('recordOnRoot', async() => {
+    //     const User = z.object({
+    //         name: z.string(),
+    //     });
     //     withDocs(
     //         {
-    //             method: 'post', path: '/standard_types/any',
-    //             params: z.object({ p: z.any() }),
-    //             query: z.object({ q: z.any() }),
-    //             body: z.object({ b: z.any() }),
+    //             method: 'post', path: '/standard_types/recordOnRoot',
+    //             body: z.record(User)
     //         },
     //         () => {}
     //     );
     //     await zodToSwaggerInit({ outFile: swaggerPath });
     //     const file = await getSwaggerFile();
-    //     expect(file.paths['/standard_types/any'].post.parameters).toEqual([
-    //         params('any', 'p'),
-    //         query('any', 'q'),
-    //     ]);
-    //     // expect(file.paths['/standard_types/any'].post.requestBody).toEqual({
+    //     // expect(file.paths['/standard_types/recordOnRoot'].post.requestBody).toEqual({
     //     //     "required":true,
     //     //     "content":{
     //     //         "application/json":{
     //     //             "schema":{
     //     //                 "properties":{
     //     //                     "b":{
-    //     //                        "type":"string"
-    //     //                     },
+    //     //                         "type": "object",
+    //     //                         "properties": {
+    //     //                             "name": {
+    //     //                                 "type": "string"
+    //     //                             }
+    //     //                         },
+    //     //                         "required": ["name"]
+    //     //                     }
     //     //                 },
     //     //                 "required":[
     //     //                     "b"
@@ -781,6 +1373,127 @@ describe('standard types', () => {
     //     // });
     // });
 
+    test('lazyInObject', async() => {
+        withDocs(
+            {
+                method: 'post', path: '/standard_types/lazyInObject',
+                params: z.object({
+                    p1: z.lazy(() => z.string()),
+                    p2: z.lazy(() => z.string().array())
+                }),
+                query: z.object({
+                    q1: z.lazy(() => z.string()),
+                    q2: z.lazy(() => z.string().array())
+                }),
+                body: z.object({
+                    b1: z.lazy(() => z.string()),
+                    b2: z.lazy(() => z.string().array())
+                }),
+            },
+            () => {}
+        );
+        await zodToSwaggerInit({ outFile: swaggerPath });
+        const file = await getSwaggerFile();
+        expect(file.paths['/standard_types/lazyInObject'].post.parameters).toEqual([
+            {
+                "in": "path",
+                "name": "p1",
+                "required": true,
+                "description": "reffered to type25",
+                "schema": {}
+            },
+            {
+                "in": "path",
+                "name": "p2",
+                "required": true,
+                "description": "reffered to type26",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q1",
+                "required": true,
+                "description": "reffered to type29",
+                "schema": {}
+            },
+            {
+                "in": "query",
+                "name": "q2",
+                "required": true,
+                "description": "reffered to type30",
+                "schema": {}
+            },
+        ]);
+        expect(file.paths['/standard_types/lazyInObject'].post.requestBody).toEqual({
+            "required":true,
+            "content":{
+                "application/json":{
+                    "schema":{
+                        "properties":{
+                            "b1":{
+                                "$ref": "#/components/schemas/type27",
+                            },
+                            "b2":{
+                                "$ref": "#/components/schemas/type28",
+                            },
+                        },
+                        "required":[
+                            "b1", "b2"
+                        ],
+                        "type":"object"
+                    }
+                }
+            }
+        });
+    });
+
+    test('objectInLazy', async() => {
+        withDocs(
+            {
+                method: 'post', path: '/standard_types/objectInLazy',
+                // params: z.lazy(() => z.object({
+                //     p: z.string()
+                // })),
+                // query: z.lazy(() => z.object({
+                //     q: z.string()
+                // })),
+                body: z.lazy(() => z.object({
+                    b: z.string()
+                })),
+            },
+            () => {}
+        );
+        await zodToSwaggerInit({ outFile: swaggerPath });
+        const file = await getSwaggerFile();
+        // expect(file.paths['/standard_types/objectInLazy'].post.parameters).toEqual([
+        //     {
+        //         "in": "path",
+        //         "required": true,
+        //         "description": "reffered to type31",
+        //         "schema": {}
+        //     },
+        //     {
+        //         "in": "query",
+        //         "required": true,
+        //         "description": "reffered to type33",
+        //         "schema": {}
+        //     },
+        // ]);
+        expect(file.paths['/standard_types/objectInLazy'].post.requestBody).toEqual({
+            "required":true,
+            "content":{
+                "application/json":{
+                    "schema": { 
+                        "type": "object",
+                        "required": [],
+                        "properties": {},
+                        "$ref": "#/components/schemas/type31" 
+                    }
+                }
+            }
+        });
+    });
+
     /*
     string - done
     number - done
@@ -789,29 +1502,29 @@ describe('standard types', () => {
     date - done => string, add description 'Type: date'
 
     if undefined/null/void (not mixed with something!), write {"type": "void", example: "void"} (null/undefined). 
-    undefined (one property - undefined, string.optional) - undefined ???
-    null (one property - null, string.nullable,  union(number,string,null), union(number,string).nullable)
-    void (one property - void)
+    undefined (one property - undefined, string.optional) - done
+    null (one property - null, string.nullable,  union(number,string,null), union(number,string).nullable) - done (for query, params and body creates 3 same types)
+    void (one property - void) - done
 
     union (with [object & array & string] or [number & string]) - if union in params or query property, then define type with that union in components/schemas,
-        and use $ref to it. Important: add to "description" of property 'refers to typeX'
+        and use $ref to it. Important: add to "description" of property 'refers to typeX' - done
 
     enum (of literal) - done
     object (of string, number, boolean) - done
     array (one property - array of objects, another property - array of strings) - done
 
-    any 
-    unknown
+    any - done 
+    unknown - done
 
-    tuple ([string, number, object, array])
+    tuple ([string, number, object, array]) - done
     record (some object like in zod documentation, with any string key of object)
 
-    lazy (of object, of string, of array, may be 3 different tests)
+    lazy (of object, of string, of array, may be 3 different tests) - done
     */
 });
 
 describe('mixed types', () => {
-    const zodExampleObj = z.object({ s: z.string() });
+    //const zodExampleObj = z.object({ s: z.string() });
     //here in tests any abstract type like lazy or array should contain zodExampleObj,
     //or [zodExampleObj & string] for types like union
 
