@@ -2,6 +2,7 @@
 ___
 # About:
 Converts your API definition in code to swagger/openapi3 file. Api input data should be described using zod library https://github.com/colinhacks/zod. The core idea is that API methods, paths, incomming data types, returnTypes and examples are often described in code. So if you want to have single source of truth and maintain documentation in actual state after each API change, without documentation file update, you can use this library.
+![Main example image](/examples/mainExample.jpg)
 
 
 Swagger supports restricted subset of zod types, so for unsupported cases we add some description and AnyValue type for corresponding swagger field.
@@ -24,16 +25,16 @@ import { withDocs, zodToSwaggerInit } from 'zod-to-swagger';
 const [method, path, requestHandler] = withDocs(
     {
         method: 'post',
-        path: '/some_path/endpoint/{param}',
-        params: z.object({ param: z.string() }),
-        query: z.object({ query_param: z.string() }),
-        body: z.object({ body_prop: z.number() }),
+        path: '/some_path/endpoint/{path_param}',
+        params: zod.object({ path_param: zod.string() }),
+        query: zod.object({ query_param: zod.string() }),
+        body: zod.object({ body_prop: zod.number() }),
     },
     //request handler
     (requestData, req, res) => {
         //types defined for params, query, body are available for typescript(same as in zod)
         const { params, query, body } = requestData;
-        //params.param has type string in typescript
+        //params.path_param has type string in typescript
         //query.query_param has type string in typescript
         //body.body_prop has type number in typescript
     }
@@ -56,7 +57,11 @@ But you may want to create nested subroutes in different files in Express. In ou
 #### **`subroute.ts`**
 ```ts
 const [method, path, handler] = withDocs(
-    { method: 'get', path: '/endpoint', query: z.object({name: z.string()}) },
+    {
+        method: 'get',
+        path: '/endpoint',
+        query: zod.object({name: zod.string()}),
+    },
     (reqData, req, res) => {
         //reqData.query.name has type string in typescript
     }
@@ -88,11 +93,11 @@ zodToSwaggerInit({ outFile: 'swagger_file.json' }).then(sd => {
 ```
 
 # Restrictions:
-- ```zodToSwaggerInit``` should be called after all withDocs and pathWithDocs calls.
+- ```zodToSwaggerInit``` should be called after all ```withDocs``` and ```pathWithDocs``` calls.
 - ```zodToSwaggerInit``` is async, you can access to generated file only after this func call completed.
-- You can use only ```zod.object``` or ```zod.lazy(() => zod.object())``` for ```params/query/body``` definition. You cannot use ```zod.lazy``` for root level definition of ```params/query```.
+- You can use only ```zod.object``` or ```zod.lazy(() => zod.object())``` for ```params/query/body``` root level definition. You cannot use ```zod.lazy``` for root level definition of ```params/query```.
 - ```pathWithDocs(path, module)```, here module always should be defined in format ```() => require('./path_to_module').default)``` right in ```pathWithDocs``` call. It's because we use call stack to restore nested structure of routes definitions. We cannot provide another API for nested routes definition, so you should use this syntax, or use ```withDocs({path: 'full/path/to/endpoint'})``` and set path option to full path to endpoint.
-- Now we support only zod1. But we will support other versions.
+- Now we support only zod1. But we will support other versions soon.
 
 # Motivation:
 The core idea is that API methods, paths, incomming data types, returnTypes and examples are often described in code. So if you want to have single source of truth and maintain documentation in actual state after each API change, without documentation file update, you can use this library.
@@ -104,6 +109,7 @@ We choose zod, because it's a best library to define and validate types for type
 - [X] Support nested routes definition
 - [X] Make typescript types defined in zod schemas available in requestData.
 - [X] Write tests for complex zod types combinations
+- [X] Support recursive definitions
 - [ ] Detach ```requestData``` from handler definition, to make it easier to use ```withDocs``` in any backend framework
 - [ ] Extend API for more flexible usage.
     - [ ] ```zodToSwaggerInit``` should return generated file.
