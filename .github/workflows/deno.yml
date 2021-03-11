@@ -36,4 +36,4 @@ jobs:
         run: deno cache deps.ts
 
       - name: Run Tests
-        run: deno test -A --unstable
+        run: deno --allow-read --allow-write test -A --unstable
